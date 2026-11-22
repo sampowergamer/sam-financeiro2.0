@@ -34,7 +34,15 @@ else{
  onAuthStateChanged(auth,async user=>{unsubs.forEach(f=>f());unsubs=[];uid=user?.uid||null;$('login').hidden=!!user;$('app').hidden=!user;$('logout').hidden=!user;$('userLabel').textContent=user?.email||'';if(!user)return;
  try{const snap=await getDoc(doc(db,'users',uid));settings={...settings,...(snap.data()||{})};fillSettings();}
  catch(e){$('alerts').innerHTML='<div class="warning dangerbox">Conta autenticada, mas falhou o acesso ao banco de dados. Confira se o Firestore existe e se as regras foram publicadas. '+(e.code||e.message)+'</div>';return;}
- for(const key of Object.keys(data)){unsubs.push(onSnapshot(collection(db,'users',uid,key),s=>{data[key]=s.docs.map(d=>({id:d.id,...d.data()}));render()},e=>alert('Falha ao carregar '+key+': '+e.message))}render();},e=>showError(authMessage(e)));
+ for (const key of Object.keys(data)) {
+  unsubs.push(onSnapshot(
+    collection(db, 'users', uid, key),
+    s => { data[key] = s.docs.map(d => ({id: d.id, ...d.data()})); render(); },
+    e => alert('Falha ao carregar ' + key + ': ' + e.message)
+  ));
+ }
+ render();
+}, e => showError(authMessage(e)));
  }catch(e){showError('Erro ao iniciar Firebase: '+(e?.message||'desconhecido'));}
 }
 const authenticate=async mode=>{
