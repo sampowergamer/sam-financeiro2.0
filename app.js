@@ -4,16 +4,54 @@ import {getAuth,onAuthStateChanged,createUserWithEmailAndPassword,signInWithEmai
 import {getFirestore,doc,collection,addDoc,setDoc,getDoc,onSnapshot,deleteDoc,serverTimestamp} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-firestore.js';
 import {getStorage,ref,uploadBytes,getDownloadURL} from 'https://www.gstatic.com/firebasejs/11.10.0/firebase-storage.js';
 import {firebaseConfig} from './firebase-config.js';
+window.__samStarted=true;
 const $=id=>document.getElementById(id), money=n=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-const configured=firebaseConfig.apiKey!=='COLE_AQUI';
+const showError=message=>{$('authError').textContent=message;$('bootStatus').textContent='';};
+const authMessage=e=>{
+ const code=e?.code||'';
+ const messages={
+  'auth/email-already-in-use':'Este e-mail já está cadastrado. Use Entrar.',
+  'auth/invalid-email':'Digite um e-mail válido.',
+  'auth/weak-password':'A senha deve ter pelo menos 6 caracteres.',
+  'auth/invalid-credential':'E-mail ou senha incorretos.',
+  'auth/wrong-password':'Senha incorreta.',
+  'auth/user-not-found':'Conta não encontrada.',
+  'auth/operation-not-allowed':'No Firebase: Authentication > Sign-in method > ative E-mail/senha.',
+  'auth/invalid-api-key':'A API Key do firebase-config.js está incorreta.',
+  'auth/network-request-failed':'Falha de rede. Verifique sua conexão e tente novamente.',
+  'auth/unauthorized-domain':'Domínio não autorizado. Adicione samfinanceiro.netlify.app em Firebase Authentication > Settings > Authorized domains.',
+  'auth/too-many-requests':'Muitas tentativas. Aguarde e tente mais tarde.'
+ };
+ return messages[code]||('Falha de autenticação ('+(code||'desconhecida')+'): '+(e?.message||'verifique o Console'));
+};
 let auth,db,storage,uid=null,unsubs=[],data={transactions:[],debts:[],cards:[],vehicles:[]},settings={digital:0,cash:0,dailyFuel:107,workDays:6};
-if(configured){const app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);storage=getStorage(app);
-onAuthStateChanged(auth,async user=>{unsubs.forEach(f=>f());unsubs=[];uid=user?.uid||null;$('login').hidden=!!user;$('app').hidden=!user;$('logout').hidden=!user;$('userLabel').textContent=user?.email||'';if(!user)return;
-const snap=await getDoc(doc(db,'users',uid));settings={...settings,...(snap.data()||{})};fillSettings();
-for(const key of Object.keys(data)){unsubs.push(onSnapshot(collection(db,'users',uid,key),s=>{data[key]=s.docs.map(d=>({id:d.id,...d.data()}));render()},e=>alert('Falha ao carregar '+key+': '+e.message))}render()});
-}else{$('authError').textContent='Configure firebase-config.js antes de publicar.'}
-$('signIn').onclick=async()=>{try{await signInWithEmailAndPassword(auth,$('email').value,$('password').value)}catch(e){$('authError').textContent=e.message}};
-$('signUp').onclick=async()=>{try{await createUserWithEmailAndPassword(auth,$('email').value,$('password').value)}catch(e){$('authError').textContent=e.message}};
+const configIsValid=['apiKey','authDomain','projectId','appId'].every(k=>{const v=firebaseConfig[k];return typeof v==='string'&&v.trim().length>0&&!v.includes('COLE_AQUI')});
+if(!configIsValid){showError('O Firebase ainda não foi configurado: complete apiKey, authDomain, projectId e appId em firebase-config.js.');}
+else{
+ try {
+ const app=initializeApp(firebaseConfig);auth=getAuth(app);db=getFirestore(app);storage=getStorage(app);
+ $('bootStatus').textContent='Firebase carregado. Você já pode criar conta ou entrar.';
+ onAuthStateChanged(auth,async user=>{unsubs.forEach(f=>f());unsubs=[];uid=user?.uid||null;$('login').hidden=!!user;$('app').hidden=!user;$('logout').hidden=!user;$('userLabel').textContent=user?.email||'';if(!user)return;
+ try{const snap=await getDoc(doc(db,'users',uid));settings={...settings,...(snap.data()||{})};fillSettings();}
+ catch(e){$('alerts').innerHTML='<div class="warning dangerbox">Conta autenticada, mas falhou o acesso ao banco de dados. Confira se o Firestore existe e se as regras foram publicadas. '+(e.code||e.message)+'</div>';return;}
+ for(const key of Object.keys(data)){unsubs.push(onSnapshot(collection(db,'users',uid,key),s=>{data[key]=s.docs.map(d=>({id:d.id,...d.data()}));render()},e=>alert('Falha ao carregar '+key+': '+e.message))}render();},e=>showError(authMessage(e)));
+ }catch(e){showError('Erro ao iniciar Firebase: '+(e?.message||'desconhecido'));}
+}
+const authenticate=async mode=>{
+ $('authError').textContent='';
+ if(!auth){showError('Firebase não está inicializado. Revise firebase-config.js.');return;}
+ const email=$('email').value.trim(),password=$('password').value;
+ if(!email){showError('Preencha seu e-mail.');return;}
+ if(!password){showError('Preencha a senha.');return;}
+ if(mode==='signup'&&password.length<6){showError('A senha deve ter pelo menos 6 caracteres.');return;}
+ const btn=$(mode==='signup'?'signUp':'signIn');btn.disabled=true;
+ $('bootStatus').textContent=mode==='signup'?'Criando sua conta…':'Entrando…';
+ try{if(mode==='signup')await createUserWithEmailAndPassword(auth,email,password);else await signInWithEmailAndPassword(auth,email,password);$('bootStatus').textContent='Autenticado. Carregando dados…';}
+ catch(e){showError(authMessage(e));}
+ finally{btn.disabled=false;}
+};
+$('signIn').onclick=()=>authenticate('login');
+$('signUp').onclick=()=>authenticate('signup');
 $('logout').onclick=()=>signOut(auth);
 document.querySelectorAll('#tabs button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.tab').forEach(t=>t.hidden=t.id!==b.dataset.tab);document.querySelectorAll('#tabs button').forEach(x=>x.classList.toggle('active',x===b))});
 const formData=f=>Object.fromEntries(new FormData(f).entries());
