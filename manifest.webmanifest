@@ -1,1 +1,1 @@
-{"name":"SAM Finanças","short_name":"SAM Finanças","start_url":"/","display":"standalone","background_color":"#0b1220","theme_color":"#101827"}
+{"name":"SAM FINANÇAS 2.1","short_name":"SAM Finanças","description":"Gestão financeira privada","start_url":"/","scope":"/","display":"standalone","background_color":"#080f1e","theme_color":"#0a1122","icons":[{"src":"/src-assets/icon-192.png","sizes":"192x192","type":"image/png","purpose":"any maskable"},{"src":"/src-assets/icon-512.png","sizes":"512x512","type":"image/png","purpose":"any maskable"}]}
